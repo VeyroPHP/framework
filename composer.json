@@ -1,0 +1,102 @@
+{
+    "name": "veyrophp/core",
+    "description": "VeyroPHP: an independent PHP framework focused on explicit behavior, secure defaults and measurable performance.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "framework",
+        "php",
+        "http",
+        "database"
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.2",
+        "ext-ctype": "*",
+        "ext-filter": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "nyholm/psr7": "^1.8",
+        "nyholm/psr7-server": "^1.1",
+        "psr/container": "^2.0",
+        "psr/event-dispatcher": "^1.0",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^2.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0",
+        "psr/log": "^3.0",
+        "psr/simple-cache": "^3.0"
+    },
+    "require-dev": {
+        "anthropic-ai/sdk": "^1.3",
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "guzzlehttp/guzzle": "^8.3",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5"
+    },
+    "suggest": {
+        "ext-fileinfo": "Upload type detection (MimeType, file rules) and LocalDisk::mimeType()",
+        "ext-pcntl": "Job timeouts and graceful shutdown of queue workers (Linux, macOS)",
+        "ext-pdo": "The database layer, with the driver you use: ext-pdo_sqlite, ext-pdo_mysql or ext-pdo_pgsql",
+        "ext-redis": "The Redis cache store and the Redis queue",
+        "ext-simplexml": "The S3 disk",
+        "ext-tokenizer": "The template linter (view:lint) and the porting assistant (port:*)",
+        "veyrophp/ai": "AI features (Claude), split from the core into its own package"
+    },
+    "autoload": {
+        "psr-4": {
+            "VeyroPHP\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "VeyroPHP\\Tests\\": "tests/",
+            "VeyroPHP\\Ai\\": "packages/ai/src/",
+            "VeyroPHP\\Ai\\Tests\\": "packages/ai/tests/",
+            "VeyroPHP\\Bench\\": "bench/"
+        },
+        "classmap": [
+            "tests/Fixtures/",
+            "bench/fixtures.php"
+        ],
+        "exclude-from-classmap": [
+            "tests/Fixtures/Port/"
+        ]
+    },
+    "config": {
+        "platform": {
+            "php": "8.2.0"
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse --memory-limit=512M",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "check": [
+            "@cs:check",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "archive": {
+        "exclude": [
+            "/vendor",
+            "/composer.lock",
+            "/packages",
+            "/resources/branding",
+            "/.phpstan.cache",
+            "/.phpunit.cache",
+            "/.php-cs-fixer.cache",
+            "/.local-services"
+        ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        }
+    }
+}

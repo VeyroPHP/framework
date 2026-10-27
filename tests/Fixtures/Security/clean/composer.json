@@ -1,0 +1,7 @@
+{
+    "name": "fixture/clean-app",
+    "description": "Test fixture: a lock file whose dependencies had no published advisories when it was written. Never install it.",
+    "require": {
+        "psr/log": "3.0.2"
+    }
+}

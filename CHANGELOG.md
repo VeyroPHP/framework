@@ -1,0 +1,277 @@
+# Changelog
+
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project intends to follow [Semantic Versioning](https://semver.org/) from `0.1.0`.
+
+## [Unreleased]
+
+### Added
+
+- **Mail API transports and SMS ([ADR 0043](docs/architecture/adr/0043-mail-api-transports-and-sms.md), guides: [mail](docs/getting-started/mail.md#http-api-transports-mailgun-amazon-ses-brevo), [SMS](docs/getting-started/notifications.md#sms)):**
+  - Mailers `mailgun`, `ses` (Amazon SES v2, Signature V4) and `brevo` (need Guzzle or a PSR-18 client).
+  - `TransportException::$httpStatus`, and `isRetryable()` for HTTP 429/5xx.
+  - The built-in `sms` notification channel: `SmsMessage` (with DLT templates), gateways `msg91`, `twilio`, `log` and `array`, the `SmsGateway` interface, and E.164 number handling with a default country code.
+  - `NotificationException::fromApi()`.
+  - Not yet tried against real provider accounts.
+- **Validation rules and form requests ([ADR 0042](docs/architecture/adr/0042-validation-rules-and-form-requests.md), [guide](docs/security/authentication.md#form-requests)):**
+  - Conditional presence: `required_if`, `required_unless`, `required_with`, `required_without`.
+  - Dates: `after`, `after_or_equal`, `before`, `before_or_equal` (with `today`, `now`, a date or another field). `Validator` takes an optional clock.
+  - Formats and comparisons: `accepted`, `alpha`, `alpha_num`, `digits`, `digits_between`, `uuid`, `json`, `ip`, `ipv4`, `ipv6`, `lowercase`, `uppercase`, `different`, `starts_with`, `ends_with`, `size`. Each has an English message; the starter has the Hindi ones.
+  - `VeyroPHP\Validation\FormRequest`: `rules()`, `messages()`, `authorize()` (403) and `prepare()`. It is validated before the handler runs.
+  - `VeyroPHP\Http\FromRequest`, which the handler invoker uses to build such parameters.
+  - `php veyro make:request`.
+- **Remember me, log out other devices, login throttle ([ADR 0041](docs/architecture/adr/0041-remember-me-other-devices-login-throttle.md), [guide](docs/security/authentication.md#remember-me)):**
+  - **Remember me:** `Auth::attempt(..., remember: true)`, the `RememberMe` middleware, `RememberTokens`, `RememberSchema` and `php veyro auth:prune-remember`. The cookie holds `selector:validator`; only a hash of the validator is stored, and tokens are bound to the password fingerprint, so a password change ends remembered browsers.
+  - **Log out other devices:** `Auth::logoutOtherDevices($password)` and the `OtherDevicesLoggedOut` event.
+  - **Login throttle:** `LoginThrottle`, the two login limits (per email + client, per email) moved from the starter into the framework (MISC-9). It uses the same cache keys and config.
+  - `Auth`'s constructor gains an optional `?RememberTokens`; `attempt()` and `login()` gain an optional `$remember`.
+  - `TestClient::forgetCookie()`.
+  - Starter: a "remember me" checkbox, the `remember_tokens` migration, "log out other devices" on the dashboard, and daily pruning.
+- **Authorization policies and gate ([ADR 0040](docs/architecture/adr/0040-authorization-policies-and-gate.md), [guide](docs/security/authentication.md#policies-and-the-gate-record-level-checks)):**
+  - `VeyroPHP\Auth\Access\AccessRules` (`define()`, `policy()`, `before()`) and the scoped `Gate` (`allows()`, `denies()`, `authorize()`, `forUser()`), registered by `AuthServiceProvider`.
+  - Checks are denied by default. RBAC super-admins pass, and RBAC permissions answer abilities that have no rule.
+  - Guests are never passed to a rule whose user parameter is not nullable.
+  - `AuthorizationException` gives 401 for guests and 403 for users.
+  - `Authorize::for('ability')` middleware and `php veyro make:policy`.
+- **ORM (batch B, [ADR 0039](docs/architecture/adr/0039-orm-soft-deletes-scopes-events-relations.md)):**
+  - Soft deletes: `protected const SOFT_DELETES = 'deleted_at'`, `Model::trashed()`, `Orm::restore()`, `Orm::forceDelete()`, `ModelQuery::withTrashed()` and `onlyTrashed()`. Deleted rows are left out of every query, `find()`, route binding and relation loading.
+  - Scopes: `Scope` classes or closures with `ModelQuery::apply()` (added as one group), `Model::globalScopes()` on every query, and `withoutGlobalScopes(...)` to lift them. Scopes cannot be widened by `orWhere()`, and they never count as the where clause `update()`/`delete()` require.
+  - Model events (PSR-14, when a dispatcher is bound): `ModelSaving`, `ModelSaved`, `ModelDeleting`, `ModelDeleted`, `ModelRestored` in `VeyroPHP\Orm\Events`. Before-events can stop the write. Each event is sent once per write. The ORM opens no transaction of its own. `Orm` gains an optional third constructor parameter, `?EventDispatcherInterface $events`.
+  - Relations: `Relation::hasManyThrough()` (one join query; trashed or scoped-out intermediate rows hide their rows), `morphMany()`, `morphOne()` and `morphTo()` (an explicit alias map; a stored type outside it loads `null` and never chooses a class).
+- **Query builder (batch B):**
+  - `lockForUpdate(skipLocked:, noWait:)` and `sharedLock()`, refused outside a transaction.
+  - `whereJsonPath()`, with a validated, bound path.
+  - `whereFullText()` with `Blueprint::fullText()` (MySQL/MariaDB and PostgreSQL; SQLite throws).
+  - `Connection::transaction($callback, attempts: n)` retries deadlocks and serialization failures (`QueryException::isDeadlock()`), outermost transaction only.
+  - All are tested on SQLite, MariaDB 10.4 and PostgreSQL 16. `SKIP LOCKED` needs MariaDB 10.6+ and was not run.
+
+- Maintenance mode: `php veyro down` (`--retry`, `--message`, `--allow` for IPs/CIDR ranges, `--secret` for a one-time bypass link stored only as a hash) and `php veyro up`; `BlockDuringMaintenance` middleware answers 503 with `Retry-After` and `no-store` without logging each request; `/up` stays reachable ([ADR 0038](docs/architecture/adr/0038-maintenance-health-testing.md)).
+- Health checks: `HealthCheck` with built-in `database`, `cache` and `storage` checks, `HealthEndpoint` for a `/up` route (only ok/fail per check, no error messages), and `php veyro health` with times and errors.
+- Testing helpers: `TestClock` (a controllable clock for the framework's clock closures), `EventFake` (records PSR-14 events, optional pass-through, assertions), `RollsBackTransactions` (each test in a rolled-back transaction); new [testing guide](docs/getting-started/testing.md).
+- Starter: `BlockDuringMaintenance` in the global middleware and a `/up` route.
+- `$urls->absolute($path = null)` (origin from `APP_URL`, never from the `Host` header) and `$urls->asset($path)` (`?v=` from the file's modification time in `public/`); `ShareUrlHelpers` passes `app.url` and the public directory to `Urls`. The `Urls` constructor gains two optional parameters.
+- `VeyroPHP\Security\Honeypot` middleware (`Honeypot::field('website')`): a filled hidden field gives 400 before the handler runs.
+- `VeyroPHP\Http\Middleware\ConditionalGet` (`ConditionalGet::cache($maxAge, $public)`): strong ETags, `If-None-Match` and 304 for GET/HEAD; `Cache-Control` on request, `private, no-cache` when the response sets a cookie.
+- `VeyroPHP\Http\Sitemap`: sitemap.xml builder with escaping, URL/frequency/priority checks and the 50,000-URL limit.
+- Docs: static asset caching (nginx/Apache), SPA integration recipe, honeypot, ETags and sitemaps.
+- Starter app: a responsive one-page business website at `/business` (hero, about, services, testimonials, FAQ, contact), with content in `config/site.php`, SEO metadata (canonical, Open Graph, JSON-LD), versioned `public/css/site.css` and `public/js/site.js`, `/sitemap.xml`, and a contact form protected by CSRF, validation (`RedirectBackOnValidationError`), a honeypot and a rate limit, which mails the enquiry with the visitor as Reply-To.
+- `VeyroPHP\Validation\RedirectBackOnValidationError` (opt-in middleware) and `ErrorBag`: HTML forms that fail validation go back to a same-origin Referer (or a fallback path) with `$errors` and `$old()` for the next request; passwords, tokens and other sensitive fields are never flashed (C2).
+- `$view->url()`, `$view->json()` and `$view->attr()`: escaping for URLs (blocks `javascript:`, `data:`, `vbscript:` and disguised variants), for data inside `<script>`, and for attribute lists. They are methods, so existing templates keep their variable names (VQ-018).
+- `php veyro view:lint [--path] [--strict]` and `VeyroPHP\View\TemplateLinter`: report template output that is not escaped, and `$e()` inside URL attributes.
+- `TransactionException::connectionLost()`; `SourceTree::tooLarge()`.
+- `psr/container` ^2.0 runtime dependency.
+- `VeyroPHP\Container\Container`: PSR-11 container with transient, singleton, scoped and instance bindings, constructor autowiring, registration-time validation, circular-dependency and captive-dependency detection, and a typed `make()`.
+- Container exceptions `ContainerException`, `NotFoundException` and `CircularDependencyException`.
+- ADR 0005 (container design) and container documentation.
+- `VeyroPHP\Config\Config` (immutable, dot notation, strict typed getters) and `ConfigLoader` (directory of PHP files), with `ConfigException`.
+- ADR 0006 (configuration) and configuration documentation.
+- `.env` support: `DotenvParser`, typed `Env`, `EnvLoader`; config files receive `$env` (ADR 0007).
+- Service providers (`ServiceProvider`, `BootableProvider`), application lifecycle (`register`, `boot`, `beforeBoot`, `afterBoot`), `ApplicationException`, `ConfigServiceProvider`.
+- `psr/log` ^3.0 runtime dependency; `FileLogger`, `Redactor`, `RedactingLogger`, `LoggingServiceProvider`, `ThrowableFormatter`.
+- `ErrorHandler` with `FatalError`, `PlainTextRenderer` and `HtmlRenderer` (ADR 0008).
+- Integration test suite.
+- Security overview documentation.
+- HTTP layer (PSR-7/15/17 via `nyholm/psr7`): `ServerRequestFactory`, `ResponseEmitter`, `ResponseFactory`, `HttpKernel`, `HttpErrorResponder`, middleware `Pipeline`, `JsonBodyParser`, HTTP exceptions, `HttpServiceProvider`.
+- Routing: `Router` with constraints, groups, names, URL generation, 404/405 handling and encoding normalization; `HandlerInvoker` for closures, controllers and invokable classes.
+- `View` renderer with `$e()` escaping and `ViewServiceProvider`.
+- ADR 0009 (HTTP kernel and routing); ADR 0004 accepted.
+- Starter application `veyrophp-app` with a welcome page.
+- Database layer: `ConnectionConfig`, `ConnectionFactory`, lazy `Connection` with typed bindings and savepoint-based nested transactions, `DatabaseManager`, `DatabaseServiceProvider`.
+- Dialects for MySQL/MariaDB, PostgreSQL and SQLite with validated identifier quoting.
+- Query builder with joins, nested conditions, grouping, aggregates, pagination, bulk insert, upsert, and guarded `update()`/`delete()`.
+- `Support\Ulid` for public identifiers.
+- ADR 0010 (database layer); CI job for MySQL 8 and PostgreSQL 16.
+- Query profiling: `QueryExecuted` events, `QueryProfiler`, `QueryLogger` (no bound values), `ProfileQueriesMiddleware` with N+1 warnings, `Builder::explain()`, `database.profiling` config.
+- Benchmark runner in `bench/` and the first performance baseline report; ADR 0011.
+
+- Cache: PSR-16 `Cache` with array, file and Redis stores, prefixes, `remember()` with stampede locks, `CacheManager`, `CacheServiceProvider` (ADR 0012); `psr/simple-cache` ^3.0 dependency.
+- Schema builder (`Schema`, `Blueprint`, per-database grammars) and migrations (`Migration`, `Migrator`) (ADR 0013).
+- Starter app: `users` migration and provisional `php veyro migrate` script.
+- Optional ORM: `Orm`, `Model`, `ModelQuery`, `Relation` with explicit eager loading, mass-assignment protection, casts, hidden attributes, pivot `attach`/`detach`/`sync` (ADR 0014).
+- Route model binding by public id via `RouteParameterResolver` and `ModelRouteResolver`.
+- `VeyroPHP\Exception\HasHttpStatus` interface; `Container::bound()`.
+- Starter app: `App\Models\User`, opcache warning on the welcome page.
+- `RateLimiter`, `ThrottleRequests`, `Http\ClientIp` (trusted proxies, CIDR), `SecurityHeaders`, `Cors`, `MimeType`, `UploadStore`, `SecurityServiceProvider`; `Cache::lock()` (ADR 0016).
+- Validator rules `file`, `max_size`, `mimes`, `image`.
+- `ResponseEmitter` removes PHP's `X-Powered-By` header.
+- `Security` test suite and threat model.
+- Starter app: `config/security.php`, login throttling (per email + IP and per IP), security headers.
+- Console: `Console`, `Command`, `#[AsCommand]`, `Argument`, `Option`, `Input`, `Output`, `ConsoleServiceProvider` (ADR 0017).
+- Commands `migrate`, `migrate:rollback`, `migrate:status`, `rbac:seed`, `route:list`, `make:model`, `make:controller`, `make:migration`, `serve`; `resources/server.php` router for the built-in server.
+- `VeyroPHP\Testing\TestClient` for in-process HTTP tests.
+- `Security\TrustProxies`: correct scheme and port behind trusted TLS-terminating proxies.
+- `PrunableStore`, `FileStore::prune()`, `ArrayStore::prune()`, `Cache::prune()` and `php veyro cache:prune`.
+- Deployment guide, backward-compatibility promise, `DocumentationTest` for the guides.
+- `port:convert` also converts Blade views (directives, components, `$loop`, URL helpers), controllers (constructor injection, view/response/abort/config/route/validate/Cache/Log/Auth/model calls) and copies `public/` files; Laravel framework tables are flagged; conflicts include tables made by schema classes.
+- `VeyroPHP\View\ShareUrlHelpers` and `Urls`: `$urls->route()/to()/current()/is()/routeIs()` in views (base-path aware); the starter uses it instead of its own `ShareAssetBase`.
+- `make:middleware`.
+- **Fix:** `ResponseFactory::html()/text()/json()` now let a `Content-Type` passed by the caller replace the default.
+- `port:convert`: Laravel migrations, model skeletons and routes into a separate VeyroPHP application, with TODO(port) notes, conflict checks (tables, routes, route names), `--dry-run` and marker-guarded `--force` (ADR 0036 addendum). Column-level `primary()`, `dropColumn([...])` and `select([...])` accept Laravel's forms.
+- Schema builder: `char`, `mediumText`, `longText`, `tinyInteger`, `smallInteger`, `unsigned*Integer`, `float`, `timestamp` (same type as `dateTime`), `enum` (string with a CHECK constraint), `rememberToken`, `softDeletes`, `primary()`, and the modifiers `after()` (MySQL) and `useCurrent()`; all real Laravel migrations analyzed so far now map directly.
+- Developer adoption: guides `docs/migrating/from-laravel.md` and `from-codeigniter.md`; `port:analyze` (`VeyroPHP\Port\`: `PortAnalyzer`, `LaravelAnalyzer`, `CodeIgniterAnalyzer`, `SourceTree`, `Tokens`, `Capabilities`, `Report`, `Finding`, `Status`) reads a project without running or changing it (ADR 0036).
+- Brand assets in `resources/branding` (icon, logo); the starter has a favicon set, uses the icon on its welcome page and shares `$assetBase` with views (`App\Http\Middleware\ShareAssetBase`).
+- **Final name VeyroPHP** (ADR 0035), breaking: namespace `VeyroPHP\`, package `veyrophp/core` (proposed name, not published), CLI `php veyro`, `extra.veyrophp.providers`, `VEYROPHP_*` environment variables, session cookie `veyrophp_session`, log `storage/logs/veyrophp.log`, `VeyroPHPException`, encryption label `veyrophp:v1:`, signed-URL label `veyrophp:url-signing`, API token prefix `vyr_`. Existing encrypted values, signed links and API tokens become invalid.
+- **Upgrade note:** AI moved out of the core into the first-party package `veyrophp/ai` (`packages/ai`; namespace `VeyroPHP\Ai` unchanged, registered by package discovery). Applications that use AI must run `composer require veyrophp/ai` (ADR 0034). `tests/Unit/Architecture/PackageBoundaryTest` keeps packages and core apart.
+- Dependency audit: `security:audit --notify` with `AuditDiff`, `AuditMail` and the `AuditChanged` event (notify only on changes); config `audit.report` and `audit.notify.mail`; starter schedules a daily audit.
+- Dependency audit: `security:audit` command, `Security\Audit\` (`LockFile`, `ComposerAuditSource`, `OsvSource`, `Auditor`, `AuditReport` with JSON schema 1 and staleness check, `AuditPolicy`, `PolicyResult`, `Advisory`, `Severity`); starter `config/audit.php` and `.github/workflows/security.yml`; framework daily security workflow (ADR 0033).
+- Starter: `composer.lock` is no longer git-ignored, so applications commit it (it stays out of the template archive).
+- Package ecosystem: `Package\PackageManifest` (discovery from installed.json, cached), `Packages::register()`, `PackageServiceProvider` (`mergeConfig`, `publishes`, `commands`, `listen`), `Publishables`, `PackageException`, `Console\CommandRegistry`, `Config::mergeDefaults()`, `Testing\TestApplication`; commands `package:discover`, `vendor:publish` (ADR 0032).
+- Mail: display names are folded before the address and non-ASCII attachment names use RFC 2231 continuations, so no header line passes 78 characters (found with Mailpit).
+- Views: layouts, sections, components with slots and stacks on `View` (`layout`, `section`, `yield`, `component`, `startComponent`, `slot`, `push`, `stack`), `View\HtmlString` (ADR 0031). Starter auth pages use `layouts.app` and an `alert` component.
+- `VeyroPHP\Notifications`: `Notification`, `Notifier`, `Channels\Channel`, `MailChannel`, `DatabaseChannel`, `DatabaseNotifications`, `DatabaseNotification`, `SendQueuedNotification`, events `NotificationSent`/`NotificationFailed`, `NotificationException`, `NotificationServiceProvider`; `make:notification` (ADR 0030).
+- `VeyroPHP\Translation`: `Translator`, `TranslationLoader`, `PluralSelector`, `SetLocale`, `TranslationException`, `TranslationServiceProvider` (`COMMANDS`), `lang:missing` (ADR 0029). `View::share()`; templates get `$t`, `$tc`, `$locale`. `Validator` accepts a translation lookup.
+- `VeyroPHP\Filesystem`: `Disk`, `LocalDisk`, `S3Disk`, `S3Signer`, `FilesystemManager`, `FileResponse`, `FilesystemException`, `FileNotFoundException`, `FilesystemServiceProvider` (`COMMANDS`), `storage:link` (ADR 0028). New dependency: `psr/http-client` (interfaces).
+- Factories and seeders: `Orm\Factory\Factory`, `Support\Fake`, `Database\Seeding\Seeder`, `SeederRunner`; commands `db:seed`, `make:factory`, `make:seeder` (ADR 0027).
+- API tokens: `Auth\Tokens\ApiTokens`, `AccessToken`, `NewAccessToken`, `ApiTokenSchema`, `AuthenticateToken`, `RequireAbility`, `TokenException`; commands `token:create`, `token:list`, `token:revoke`, `token:prune`; `Auth::loginForRequest()` (ADR 0026).
+- `VeyroPHP\Scheduling`: `Schedule` (`command`, `job`, `call`), `Event` (frequency helpers, time zones, environments, `when`/`skip`, `withoutOverlapping`), `CronExpression`, `ScheduleRunner`, `ScheduleException`, `SchedulingServiceProvider` (`COMMANDS`); commands `schedule:run`, `schedule:list`, `schedule:work` (ADR 0025). `Cache::tryLock()`.
+- Password reset and email verification: `Auth\Passwords\PasswordBroker`, `ResetStatus`, `PasswordResetSchema`, `Auth\Verification\EmailVerifier`, `EnsureEmailIsVerified`, `Auth\Mail\ResetPasswordMail`, `VerifyEmailMail`, events `PasswordReset`, `Verified`, `auth:clear-resets` (`AuthServiceProvider::COMMANDS`). `Security\UrlSigner` and `ValidateSignature` (signed links). `EncryptionServiceProvider` also registers `UrlSigner` (ADR 0024).
+- `TestClient` fills query parameters from the request URI.
+- `VeyroPHP\Queue`: `Queue` (`push`, `later`), `Job`, `ShouldQueue`, `Payload` (JSON through constructors, models by key), `Worker` (retries, backoff, timeouts with pcntl, restart signal), `WorkerOptions`, drivers `DatabaseDriver` (no SKIP LOCKED needed), `RedisDriver`, `SyncDriver`, `ArrayDriver`, `DatabaseFailedJobStore`, `QueueSchema`, events `JobProcessed`/`JobFailed`, `QueueException`, `UnrunnableJobException`, `ModelMissingException`, `QueueServiceProvider` (`COMMANDS`); commands `queue:work`, `queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`, `queue:restart`, `make:job` (ADR 0023).
+- `EventDispatcher`: `ShouldQueue` listeners run in a queue worker. `Mailer::queue()`.
+- `VeyroPHP\Mail`: `Mailer`, `Message`, `Mailable`, `Address`, `Attachment`, `SentMessage`, `MailException`, `TransportException`, `Events\MessageSent`, `MailServiceProvider`; transports `SmtpTransport` (STARTTLS/TLS, AUTH PLAIN/LOGIN), `LogTransport`, `ArrayTransport`; `mail:test`, `make:mail` (ADR 0022). `MimeType::detectData()`.
+- AI log context keys renamed from `input_tokens`/`output_tokens` to `usage_in`/`usage_out`: the log redactor hid every key containing "token".
+- `VeyroPHP\Encryption`: `Encrypter` (AES-256-GCM, purposes, JSON values, key rotation), `EncryptionServiceProvider` (`app.key`, `app.previous_keys`), `EncryptionException`, `DecryptException`, `key:generate` (ADR 0021). New requirement: `ext-openssl`.
+- `VeyroPHP\Events`: PSR-14 `EventDispatcher` (type-based matching, lazy listener classes, stoppable events), `EventServiceProvider` (`config/events.php`), `EventException`; `Auth` sends `Login`, `LoginFailed` and `Logout`; `make:event` and `make:listener` (ADR 0020). New dependency: `psr/event-dispatcher`.
+- `VeyroPHP\Ai`: `Ai` (`text`, `chat`, `json`, `stream`, `using`, `fake`), `Message`, `Options`, `Response`, `Provider`, `AiException`, `Testing\FakeProvider`, `AiServiceProvider`, and `Providers\AnthropicProvider` on the official `anthropic-ai/sdk` (suggested, not required) (ADR 0019). `Output::write()`.
+- Starter app: `config/ai.php`, `php veyro ai:ask`, AI tests with a fake provider.
+- `Rbac` listing and bulk methods: `allRoles()`, `allPermissions()`, `permissionsByRole()`, `syncRolePermissions()`, `syncRoles()`, `overrides()`, `deleteRole()`, `countUsersWithRole()`, `superAdminRole()`.
+- Starter app: access management screens at `/admin/access` (users' roles and overrides, roles' permissions) with privilege-escalation rules and audit logging; `LOG_PATH` setting (tests log to `storage/logs/testing.log`).
+- Lost-connection handling (ADR 0018): broken connections are dropped and reads or never-sent statements are repeated once on a new connection; `QueryException::isLostConnection()`; connection `timeout` and `connect_retries` with backoff for temporary connect errors.
+- `ConfigCache`, `php veyro config:cache` / `config:clear`; `VEYROPHP_CONFIG_CACHE=0` ignores the cache.
+- `Rbac::preload()`: roles and permissions of many users in three queries.
+- Large tables: `Builder::cursorPaginate()` / `ModelQuery::cursorPaginate()` (`CursorPaginator`, `InvalidCursorException` → 400), `chunkById()`, `lazyById()`, `chunksById()`; `bench/scale.php`.
+- Starter app: `veyro` runs the console kernel; `user:create` as an app command (user and role in one transaction); `composer create-project` scripts and archive excludes; feature tests; quickstart guide.
+- Validation (`Validator`, rules, `Unique`/`Exists`, 422 responses), sessions in the cache with CSRF protection, `PasswordHasher`, `Auth` with `Authenticate`, RBAC (`Rbac`, `RbacSchema`, `RequirePermission`, `RequireRole`) (ADR 0015).
+- `ResponseFactory::redirect()` with open-redirect protection; `Cookie`; `ParameterizedMiddleware`.
+- Starter app: login, dashboard, RBAC migration, `rbac:seed` and `user:create`; clean URLs without `/public`.
+
+### Changed
+
+- **ORM (batch B):**
+  - `ModelQuery::toBase()` returns a copy of the query as it runs (global scopes and the soft-delete condition included) instead of the live builder. Changing the copy no longer changes the `ModelQuery`.
+  - `ModelQuery::first()` no longer adds `limit(1)` to the query it is called on (VQ-053).
+  - `Orm::load()` still requires models of one class; nested loading after a `morphTo` groups by class itself.
+- Porting assistant: soft deletes, query scopes, model events/observers and CodeIgniter model callbacks are reported as `manual` with the new ORM equivalents instead of `unsupported`. Morph relations are `manual` (alias map) and `hasManyThrough` is `direct`. The model converter's notes point to `SOFT_DELETES` and `Relation::morph*()`.
+- Docs: ROADMAP section "Quality programme" (its research log, issue registry and reproduction scripts are kept outside the public repository).
+- `ClientIp`: the trusted-proxy range check (`inRange()`) was rewritten independently. It compares the address and network as bit strings; behavior is unchanged (73 inputs compared old against new), with 48 new test cases for IPv4 and IPv6 prefixes, boundaries, mixed families and malformed input.
+- Reworded messages: `ValidationException` ("The submitted data failed validation."), `EnsureEmailIsVerified` 403 ("Verify your email address before opening this page."); in the starter, `auth.failed` and `auth.throttle`.
+- CONTRIBUTING: where code comes from, third-party licenses and attribution, sign-off (DCO 1.1, requested but not enforced).
+- Starter: MIT `LICENSE` file added.
+- `Builder::insert()` splits large batches below the database's bound-value limit, in one transaction (20,000 rows used to fail on SQLite with "too many SQL variables").
+- `EnvLoader` treats variable names case-insensitively on Windows (`Path` is readable as `PATH`).
+- Starter app: `/admin/users` uses cursor pagination (50 per page) instead of loading every user; `composer.json` enables `optimize-autoloader`.
+- CSRF failures return 403 (419 is non-standard and became 500 on Apache).
+- Local redirects get the application's base path.
+
+### Fixed
+
+- **Audit batch R6, duplication (2026-10-27, the items that need no owner decision):**
+  - **Logs redact more (HTTP-8, MISC-11, VQ-023):** log redaction and "never flash this input" now share one list of secret-looking names (`VeyroPHP\Security\SensitiveKey`, internal), compared in any spelling (`api-key`, `apiKey`, `API_KEY`).
+    - Newly redacted in logs: `APP_KEY`, `passphrase`, `pass`, `dsn`, `jwt`, `bindings`, and "Bearer <token>" or an "Authorization:" line inside string values.
+    - Newly kept out of flashed form input: hyphenated names such as `card-number`, `api-key` and `private-key`, and `pass`, `pwd`, `dsn`, `jwt`.
+    - Short words (`otp`, `ssn`, `cvv`, `pass`, ...) hide a form field only when they are a whole part of its name, so `business_name` and `passport_no` keep their old input. Logs still match them anywhere.
+  - **APP_KEY lists (SVC-10, MISC-10):** encryption, signed URLs and session fingerprints read `app.key` and `app.previous_keys` the same way. A trailing comma or a blank entry in `APP_PREVIOUS_KEYS` is ignored instead of failing with "APP_KEY is missing". A wrongly typed value now also fails for session fingerprints instead of being skipped.
+  - **No behaviour change:**
+    - one URL-safe base64 helper for tokens, signatures, cursors and ETags (SVC-7);
+    - one listener-resolution rule for the event dispatcher and queued listeners (SVC-8);
+    - shared parenthesis matching and source patterns in the porting assistant (CORE-7, CORE-8);
+    - one namespace and path helper for the ten `make:*` commands (CORE-10);
+    - the schema grammar and boolean binding come from the database dialect (DB-8). An unknown dialect can no longer fall back to SQLite DDL;
+    - one scalar cast helper in `Model` (DB-10);
+    - one checked array shape per where-clause type (DB-11).
+- **Release readiness:** the CI integration job runs every MySQL, PostgreSQL and Redis test class (B2). The PostgreSQL-only serialization-failure test moved to `PostgresDatabaseTest`, so `--fail-on-skipped` no longer fails the job on MySQL (B5).
+
+- **Audit batch R5, configuration and silent failures (2026-10-27, approved by the owner):**
+  - **Behaviour change (HTTP-5):** wrong security and session settings stop the application at boot with a `ConfigException` naming the key, never the value. Before, they were replaced by defaults.
+    - The checked settings are `security.trusted_proxies`, `headers`, `hsts_seconds`, `cors.*` and `uploads_path`, and `session.cookie`, `lifetime`, `secure`, `same_site`, `path`, `domain`, `store` and `csrf_except`.
+    - A missing key or `null` still means the default.
+    - `same_site: none` now needs `secure: true` (also in the `SessionConfig` constructor). Before, it gave HTTP 500 on plain HTTP.
+    - **Upgrade:** fix any value the new message names. For example, a string `hsts_seconds` silently turned HSTS off before.
+  - **Behaviour change (HTTP-7):** a `trusted_proxies` entry that is not an IP address or CIDR range (for example `10.0.0.0/33` or a trailing space) is a boot error. Before, it silently matched nothing.
+    - New `ClientIp::isValidRange()`: one validator for proxies and maintenance allow lists.
+    - A request blocked by maintenance mode reads the state file once, not up to three times.
+  - **CORE-4:** when `bootstrap/cache/packages.php` cannot be written, discovery reports why, removes its temporary file, and `package:discover` exits with 1. New `PackageManifest::cacheWritten()`.
+  - **CORE-11:** `make:*` generators report a file that cannot be created ("Could not create ...") instead of "already exists", and remove a file that was written only partly.
+  - **MISC-5:** the Redis cache store and the Redis queue share one connector.
+    - New `read_timeout` setting (default 5 seconds).
+    - Settings are checked before connecting: `database` must be an int, and errors never show values.
+    - A database that cannot be selected throws instead of silently using database 0.
+    - The existing exception types are kept.
+  - **Install requirements (MISC-4):**
+    - `composer.json` requires `ext-ctype`, `ext-filter` and `ext-mbstring` (with `ext-openssl`).
+    - `ext-fileinfo`, `ext-pdo`, `ext-redis`, `ext-simplexml`, `ext-tokenizer` and `ext-pcntl` are suggested. Where they are used, a missing one throws `MissingExtensionException` naming it, instead of a fatal "class not found".
+    - The starter requires `ext-pdo` and suggests the database drivers.
+    - PHP stays at 8.2. **Upgrade:** a PHP without `mbstring` (for example a Windows PHP with the default `php.ini`) now fails at `composer install` instead of at runtime.
+  - **Found while verifying R5 (file cache):** a long-running process (queue worker, scheduler) could permanently stop writing a cache entry or taking a lock after another process (`cache:prune`, `clear()`) had removed the empty directory. PHP's stat cache kept saying the directory existed. `FileStore` now drops that cached answer before creating the directory. Lock attempts then failed with `LockTimeoutException`, and rate limits refused every request (fail closed) until the process restarted.
+- **Audit batch R4, correctness (2026-10-27, approved by the owner):**
+  - **HTTP-4:** `confirmed` on a nested or wildcard field (`account.password`, `users.*.pin`) reads the confirmation next to the field (`account.password_confirmation`). Before, it read a top-level key and always failed.
+  - **HTTP-2:** under `/app/public/index.php/...`, a redirect to an already prefixed path (`/app/public/x`) is no longer prefixed twice.
+  - **HTTP-3 (new constants, additive):**
+    - `HttpKernel::BASE_ATTRIBUTE` (`'veyrophp.base'`) and `HttpKernel::PUBLIC_BASE_ATTRIBUTE` (`'veyrophp.public_base'`) hold the routing base and the base of files in `public/`, resolved once per request.
+    - `Urls::asset()` and `$assetBase` no longer contain `/index.php`; files there were routed to PHP and gave 404. `Urls::to()` keeps the routing base as before.
+    - `Urls` gains an optional last constructor parameter, `$publicBase`.
+    - Starter: the site layout links its icons with `asset()`.
+  - **DB-2:** `upsert()` splits large batches below the database's limit on bound values, like `insert()`, in one transaction. Before, more than about 4,000 rows of 8 columns failed on SQLite.
+  - **DB-4 (additive API):** `Relation::belongsToMany()` uses each model's `PRIMARY_KEY`, with optional `parentKey:` and `relatedKey:` for other columns. Before, models whose key is not `id` loaded empty relations, although `attach()` wrote their real keys.
+  - **SVC-13:** `Rbac::seed()` (and `rbac:seed`) checks the definition's shape first and throws `RbacException` naming the wrong key, writing nothing. Before, a wrong shape gave a `TypeError`.
+  - **MISC-15:** `storage:link` links `public/storage` to the configured root of the `public` disk (default `storage/app/public`), and fails with a message when that disk is not local.
+  - **CORE-1:** `port:convert` converts routes after a top-level `if`/`foreach` block. Before, every `}` was judged by what followed the file's first `}`.
+  - **CORE-3 (port output layout):** converted models keep their source path (`app/Models/Admin/User.php`, `app/User.php`), so files match their namespaces and models with one short name no longer overwrite each other. Two converted files with one target are never both written: the first is kept and the other is reported.
+  - **CORE-15:** the CodeIgniter analyzer reports `$routes->` calls it does not know (for example `addPlaceholder`, `map`) as "Other $routes-> calls" (manual) instead of dropping them.
+  - SVC-2 follow-up: docblocks on `NotificationFailed` and `Notifier` state the logging order and listener behaviour, and a test covers the queued retry with a failing listener.
+- **Audit batch R3, security correctness (2026-10-27):**
+  - **Security (SVC-4):** a password-reset token can be used only once, even by two requests at the same moment. The token is consumed by a delete that must remove exactly the checked row, in one transaction with the password change. The second request gets `InvalidToken`, and `afterReset` and `PasswordReset` run once. A failed save keeps the token usable.
+  - **Security (MISC-1):** `FileStore::prune()` and `clear()` remove a released lock file only while holding its `flock()`. `acquireLock()` refuses a lock file that was removed after it was opened, so two processes can no longer both hold one lock. On a busy file, the lock file is kept until the next prune.
+  - **Behaviour change (HTTP-1, requested):** a response that carries the session cookie is never cacheable by shared caches. `StartSession` turns `public` or `s-maxage` in `Cache-Control` into `private, no-cache` (`private, no-store` when `no-store` was set). Before, `ConditionalGet::cache(..., true)` sent `public` together with the session cookie, because it runs before `StartSession` adds it. Visitors without a session still get the public header, and a private `max-age` stays.
+  - **SVC-2:** a throwing `NotificationFailed` listener no longer skips the remaining channels or the error log. It is logged, and `sendNow()` still throws its `NotificationException` naming the channel failures, as documented. Before, the listener's own exception escaped.
+  - **Reliability (SVC-5):** `RedisDriver::release()` moves a job from reserved to delayed in one Lua script. A connection lost between the two steps can no longer lose the job.
+- **ORM compatibility review (2026-10-27):** `belongsToMany` and `hasManyThrough` loading failed with "ambiguous column" when the related or intermediate model had a global scope on a column that the joined table also has (for example `team_id` on every tenant table). Such scopes now run in a subquery over the model's own table. Models without global scopes keep their SQL.
+- **Audit batch R2, the P1 findings (2026-10-27):**
+  - **Behaviour change (DB-1):** `update()` and `delete()` throw `DatabaseException` when every `where` is an empty closure group; before, they ran as `where 1 = 1` and changed every row. A group with at least one condition, `whereIn(col, [])`, raw, column and JSON conditions still count as a filter. `updateAll()`/`deleteAll()` are unchanged.
+  - **Behaviour change (SVC-1):** a failing job is recorded in the failed-jobs store **first**. If recording throws, the job is released for a retry in `Worker::RECORD_RETRY_DELAY` (60) seconds and is not deleted, so nothing is lost. A throwing `JobFailed` listener, `failed()` hook or logger is reported and no longer stops the worker. A job that ran out of attempts gets its `failed()` hook. `DatabaseFailedJobStore::record()` is idempotent per payload, so a job recorded just before a crash is not recorded twice. The guarantee is at least once: a crash between recording and deleting can run the job's `failed()` hook and `JobFailed` again.
+  - **Security (CORE-2):** `port:convert` no longer lets strings from the converted project become code. Values are written as `var_export()` literals. Handlers that are not `Class@method` with a plain class name are left for hand conversion. Source paths, values and notes in comments can no longer end the comment or PHP mode. Migration lines are commented out whole even when a string literal spans several lines. Note text is no longer read as regex backreferences.
+- **Release remediation (2026-10-27):**
+  - `ServerRequestFactory::fromGlobals()` no longer takes the scheme from a client's `X-Forwarded-Proto`; only `TrustProxies` applies it, for trusted proxies (VQ-068).
+  - **Behaviour change (approved):** `Cache::lock()` throws `LockTimeoutException` instead of running the callback without the lock; `RateLimiter::attempt()` then refuses the attempt and `hit()` throws (VQ-057).
+  - New validation rule `max_bytes:N`; the starter's password reset and `user:create` use `max_bytes:72`, so a long Hindi or emoji password gives a validation error instead of a 500 (VQ-047).
+  - An exception after `Session::regenerate()` no longer loses the session: with an `HttpErrorResponder` (wired by `SessionServiceProvider`), `StartSession` renders the error and still sends the new cookie (VQ-046).
+  - Starter login: a second limit per account across all addresses (`security.login.account_max_attempts`, default 20 per 15 minutes) (VQ-020).
+  - `FileLogger` can write one file per day and keep N days (`logging.days`, starter `LOG_DAYS`, default 0 = unchanged), and cuts entries over 256 KiB with a "[truncated N bytes]" marker; deployment guide documents logrotate and the Windows option (VQ-065).
+  - Starter README: the command-line entry point is `veyro`.
+  - README: the logo's alt text is "VeyroPHP logo" instead of an unmeasured "Modern, Fast, Flexible" (approved by the owner).
+  - Starter templates: all URL attributes use `$view->url()` (23 places); `view:lint --strict` passes, and the starter's `TemplateLintTest` now fails on warnings too. Output is unchanged.
+- **Database:**
+  - `chunkById()`, `lazyById()` and `cursorPaginate()` on a query with `orWhere()` no longer repeat rows endlessly or return wrong pages (VQ-040).
+  - After the connection is lost inside a transaction, further statements on that connection are refused until the transaction is unwound, instead of running in autocommit mode (VQ-041).
+  - `transaction()` rolls back when COMMIT fails but leaves the transaction open (VQ-042).
+- **Queue and mail:**
+  - A job whose `handle()` returned is no longer marked failed or retried when removing it, logging or a `JobProcessed` listener fails (VQ-043).
+  - A delivered mail is not sent again when logging or a `MessageSent` listener fails. **Behaviour change:** such listener errors are logged, not thrown. A delivered notification channel is not counted as failed when a `NotificationSent` listener throws (VQ-044).
+  - Pushing a job whose `$timeout` is not below the connection's `retry_after` (database, Redis) throws `QueueException`. Jobs without a timeout are not affected (VQ-045, option (a)).
+  - `queue:work` warns at start when pcntl is missing and timeouts cannot be enforced (part of VQ-045).
+- **Security:**
+  - `ThrottleRequests` without a bucket name keys on the matched route instead of the raw path: encoded spellings (`/l%6Fgin`), leading zeros and other parameter values no longer get fresh limits. **Behaviour change:** all parameter values of a route share one limit (VQ-013).
+  - Rate limits group IPv6 clients by `/64` (`security.throttle.ipv6_prefix`), and `RateLimiter::attempt()` checks and counts in one locked step; `ThrottleRequests` and the starter's login use it (VQ-020, partly).
+  - A password change or reset ends every session that logged in with the old password: sessions keep an HMAC fingerprint of the password hash. A reset also revokes the account's API tokens (`auth.passwords.revoke_tokens`, default `true`). **Upgrade note:** existing sessions have no fingerprint, so every user is logged out once (VQ-011).
+  - Login takes the same time for unknown emails as for wrong passwords: the dummy hash is no longer computed per request (VQ-012).
+  - A request still running when the session is regenerated or invalidated can no longer write the old session back (VQ-014).
+- **Porting:**
+  - `port:convert` no longer copies executable or server-configuration files (`.php`, `.phtml`, `.htaccess`, `.user.ini`, `web.config`, ...) into the target's `public/` (VQ-016).
+  - Files over the size limit are reported instead of being written empty (VQ-048).
+- **Views:**
+  - Templates no longer see the renderer's `$__path` and `$__data`, and those names work as data keys.
+  - Data keys named like PHP superglobals (`_GET`, `GLOBALS`, ...) are rejected instead of being dropped silently.
+- **Validation:**
+  - `*` rules work (`tags.*`, `items.*.id`), with indexed error keys (`items.1.id`) and a limit of 10,000 paths per rule.
+  - An array field with rules below it returns only the validated sub-keys.
+  - **Behaviour change:** extra sub-keys such as `address.is_admin` no longer pass through, and `*` rules that were ignored now run (VQ-017, ADR 0037).
+- **Validation:** `alpha_dash`, `numeric`, `integer` and `ulid` no longer accept a value ending in a newline (`"12\n"`). In PHP regexes, `$` also matches before a final newline; every pattern in `src/` that ends in `$` now uses the `D` modifier.
+  - The fix also covers session ids, SQL identifiers, route parameters, API tokens, mail header names and MIME types, and configuration names.
+  - `tests/Unit/Architecture/RegexAnchorTest.php` keeps new patterns from reintroducing the problem.
+  - **Behaviour change:** such values now fail validation (VQ-001).
+- Responses now use the request's HTTP protocol version. Previously HTTP/1.0 clients behind Apache waited for the keep-alive timeout (5 s) on every request.
+- Composer package `veyrophp/core` with PSR-4 autoloading for `VeyroPHP\`.
+- `VeyroPHP\Application\Application` with framework version and a base path helper that rejects absolute paths and `..` traversal.
+- `VeyroPHP\Exception\VeyroPHPException` marker interface and `InvalidPathException`.
+- PHPUnit, PHPStan (level max) and PHP-CS-Fixer configuration.
+- GitHub Actions CI for PHP 8.2, 8.3 and 8.4, lowest dependencies and Windows.
+- Roadmap, progress log, architecture overview, scope document and ADRs 0001–0004.

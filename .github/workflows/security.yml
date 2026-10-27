@@ -1,0 +1,30 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Daily: advisories are published for versions already locked.
+    - cron: '41 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Dependency audit and live audit-tool check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - run: composer install --no-interaction --no-progress --no-plugins --no-scripts
+      - run: composer audit --locked --no-plugins --no-scripts --no-interaction
+      # security:audit against the real composer audit and OSV.dev, on the
+      # clean and the vulnerable fixture projects.
+      - run: vendor/bin/phpunit --filter testLiveSources --fail-on-skipped
+        env:
+          VEYROPHP_TEST_NETWORK: '1'

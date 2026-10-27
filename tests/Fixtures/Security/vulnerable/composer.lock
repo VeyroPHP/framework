@@ -1,0 +1,27 @@
+{
+    "_readme": ["Test fixture for security:audit. Never run composer install here."],
+    "content-hash": "00000000000000000000000000000000",
+    "packages": [
+        {
+            "name": "guzzlehttp/guzzle",
+            "version": "7.4.0",
+            "type": "library",
+            "license": ["MIT"]
+        },
+        {
+            "name": "swiftmailer/swiftmailer",
+            "version": "v6.3.0",
+            "type": "library",
+            "license": ["MIT"],
+            "abandoned": "symfony/mailer"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": []
+}

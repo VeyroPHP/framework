@@ -1,0 +1,182 @@
+{
+    "environment": {
+        "date": "2026-10-27T12:09:12+05:30",
+        "php": "8.2.12",
+        "sapi": "cli",
+        "os": "Windows NT 10.0 AMD64",
+        "opcache_cli": false,
+        "jit": "tracing",
+        "xdebug": false,
+        "quick": false
+    },
+    "results": [
+        {
+            "name": "container.autowire_3_levels",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 104324.3,
+            "ops_per_sec_min": 86566.2,
+            "ops_per_sec_max": 110483.4,
+            "p50_us": 8.4,
+            "p95_us": 17.8,
+            "p99_us": 29.4,
+            "peak_memory_mb": 14
+        },
+        {
+            "name": "router.match_static_of_200",
+            "iterations": 50000,
+            "rounds": 5,
+            "ops_per_sec_median": 947957.2,
+            "ops_per_sec_min": 889823.8,
+            "ops_per_sec_max": 985087.7,
+            "p50_us": 0.9,
+            "p95_us": 1.2,
+            "p99_us": 1.9,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "router.match_dynamic_last_of_100",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 22438.9,
+            "ops_per_sec_min": 22005.7,
+            "ops_per_sec_max": 23495.9,
+            "p50_us": 38.2,
+            "p95_us": 71.9,
+            "p99_us": 105.6,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "http.kernel_minimal_route",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 56043.6,
+            "ops_per_sec_min": 44469.5,
+            "ops_per_sec_max": 57877.2,
+            "p50_us": 15.7,
+            "p95_us": 29.3,
+            "p99_us": 48.5,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "http.kernel_3_middleware",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 49284.1,
+            "ops_per_sec_min": 40450.4,
+            "ops_per_sec_max": 50624.5,
+            "p50_us": 17.7,
+            "p95_us": 30.1,
+            "p99_us": 52,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "http.kernel_json_20_items",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 38705.9,
+            "ops_per_sec_min": 36496.6,
+            "ops_per_sec_max": 40394.3,
+            "p50_us": 22.6,
+            "p95_us": 38.7,
+            "p99_us": 61.8,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "psr7.request_and_response",
+            "iterations": 50000,
+            "rounds": 5,
+            "ops_per_sec_median": 111258.5,
+            "ops_per_sec_min": 88767.8,
+            "ops_per_sec_max": 113681.5,
+            "p50_us": 8,
+            "p95_us": 15,
+            "p99_us": 27.5,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "view.render_10_escaped_values",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 12279.7,
+            "ops_per_sec_min": 11725.2,
+            "ops_per_sec_max": 12303.5,
+            "p50_us": 78.6,
+            "p95_us": 111.1,
+            "p99_us": 145.8,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "db.read_by_pk_builder",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 51225.9,
+            "ops_per_sec_min": 49566.4,
+            "ops_per_sec_max": 53938.7,
+            "p50_us": 17.4,
+            "p95_us": 27.9,
+            "p99_us": 49,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "db.read_by_pk_raw_pdo_reused_statement",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 581975.6,
+            "ops_per_sec_min": 554825,
+            "ops_per_sec_max": 656959,
+            "p50_us": 1.4,
+            "p95_us": 2.1,
+            "p99_us": 4.9,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "db.read_by_pk_raw_pdo_prepare_each",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 164821.4,
+            "ops_per_sec_min": 152999.7,
+            "ops_per_sec_max": 170936.2,
+            "p50_us": 5.4,
+            "p95_us": 7.8,
+            "p99_us": 24.1,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "db.builder_compile_only",
+            "iterations": 20000,
+            "rounds": 5,
+            "ops_per_sec_median": 150239.4,
+            "ops_per_sec_min": 134965.6,
+            "ops_per_sec_max": 168255.8,
+            "p50_us": 5.5,
+            "p95_us": 10.6,
+            "p99_us": 22.8,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "db.insert_builder",
+            "iterations": 10000,
+            "rounds": 5,
+            "ops_per_sec_median": 51357.4,
+            "ops_per_sec_min": 49722.6,
+            "ops_per_sec_max": 53162.4,
+            "p50_us": 17.3,
+            "p95_us": 30.8,
+            "p99_us": 50.7,
+            "peak_memory_mb": 20
+        },
+        {
+            "name": "db.insert_raw_pdo_reused_statement",
+            "iterations": 10000,
+            "rounds": 5,
+            "ops_per_sec_median": 471426.8,
+            "ops_per_sec_min": 417719.7,
+            "ops_per_sec_max": 515793.6,
+            "p50_us": 1.8,
+            "p95_us": 2.1,
+            "p99_us": 5.9,
+            "peak_memory_mb": 20
+        }
+    ]
+}

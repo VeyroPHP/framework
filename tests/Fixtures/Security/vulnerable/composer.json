@@ -1,0 +1,8 @@
+{
+    "name": "fixture/vulnerable-app",
+    "description": "Test fixture: a lock file with a dependency that has published advisories. Never install it.",
+    "require": {
+        "guzzlehttp/guzzle": "7.4.0",
+        "swiftmailer/swiftmailer": "6.3.0"
+    }
+}

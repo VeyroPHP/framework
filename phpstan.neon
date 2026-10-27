@@ -1,0 +1,11 @@
+parameters:
+    level: max
+    paths:
+        - src
+        - packages
+        - tests
+        - bench
+    excludePaths:
+        # Fake Laravel/CodeIgniter projects that the port analyzer reads as text
+        - tests/Fixtures/Port
+    tmpDir: .phpstan.cache

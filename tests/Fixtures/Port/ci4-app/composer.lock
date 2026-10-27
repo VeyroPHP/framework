@@ -1,0 +1,12 @@
+{
+    "packages": [
+        {
+            "name": "codeigniter4/framework",
+            "version": "v4.5.1",
+            "require": {
+                "php": "^8.1"
+            }
+        }
+    ],
+    "packages-dev": []
+}

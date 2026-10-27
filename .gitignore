@@ -1,0 +1,20 @@
+/vendor/
+/composer.lock
+/.phpunit.cache/
+/.phpstan.cache/
+/.php-cs-fixer.cache
+/coverage/
+.env
+# Port-analyzer fixtures: fake projects whose .env must exist (it holds no real secret)
+!/tests/Fixtures/Port/*/.env
+.idea/
+.vscode/
+
+# Local PostgreSQL/Redis for running integration tests (never committed)
+/.local-services/
+
+# Internal working notes (kept out of the public repository)
+/CLAUDE.md
+/docs/PROGRESS.md
+/docs/engineering/
+/docs/research/

@@ -1,0 +1,56 @@
+ApacheBench 2.3 against XAMPP Apache 2.4.58 (Win64) + mod_php 8.2.12, opcache disabled (XAMPP default).
+Client and server on the same machine: Intel Core i7-7700HQ (4 cores / 8 threads, 2.8 GHz), 16 GB RAM, Windows 10 Pro 19045.
+Each URL: warm-up of 300 requests, then `ab -n 2000 -c 10 -s 10`.
+Starter app: veyrophp-app with APP_DEBUG=true, SQLite configured but not used by these routes, profiling disabled.
+The baseline is a temporary public/__bench_baseline.php containing `<?php echo "Hello";` (deleted after the run).
+
+=== Plain PHP baseline (/veyrophp-app/public/__bench_baseline.php)
+Complete requests:      2000
+Failed requests:        0
+Requests per second:    3892.95 [#/sec] (mean)
+Time per request:       2.569 [ms] (mean)
+  50%      0
+  95%     16
+  99%     17
+ 100%     18 (longest request)
+
+=== VeyroPHP welcome page (/veyrophp-app/public/)
+Complete requests:      2000
+Failed requests:        0
+Requests per second:    314.55 [#/sec] (mean)
+Time per request:       31.792 [ms] (mean)
+  50%     29
+  95%     60
+  99%     87
+ 100%    140 (longest request)
+
+=== VeyroPHP 404 (/veyrophp-app/public/missing-route)
+Complete requests:      2000
+Failed requests:        0
+Non-2xx responses:      2000
+Requests per second:    298.09 [#/sec] (mean)
+Time per request:       33.547 [ms] (mean)
+  50%     30
+  95%     63
+  99%     98
+ 100%    165 (longest request)
+
+=== Same welcome page with `composer dump-autoload --classmap-authoritative`
+Failed requests:        0
+Requests per second:    327.72 [#/sec] (mean)
+  50%     28
+  95%     57
+  99%     86
+
+=== Before the HTTP/1.0 protocol fix (100 requests, -c 10)
+Requests per second:    1.99 [#/sec] (mean)
+Time per request:       5032.857 [ms] (mean)
+Every request waited for Apache's 5 s KeepAliveTimeout, because the response
+status line said HTTP/1.1 to an HTTP/1.0 client. Fixed in HttpKernel.
+
+=== Cold bootstrap in a fresh CLI process (5 runs, opcache off), from a scratch script
+autoload 1.4-1.7 ms, providers + config + routes 8.4-8.9 ms, first request 9.7-11.4 ms, total 20-22 ms, 67 files loaded.
+Same with opcache enabled for the process only (file cache, warm): total 16.9-19.5 ms.
+Same with an authoritative classmap (opcache off): total 19.8-20.9 ms.
+Breakdown of one process: autoload 1.7, new Application 1.8, config+env 3.7-4.3, other providers 1.6,
+boot/routes 1.5, make HttpKernel 4.9-5.3, first request 6.0-6.9, second request 0.23-0.28, 404 1.0-1.1 (ms).

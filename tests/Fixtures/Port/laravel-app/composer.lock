@@ -1,0 +1,35 @@
+{
+    "packages": [
+        {
+            "name": "laravel/framework",
+            "version": "v12.1.0",
+            "require": {
+                "php": "^8.2"
+            }
+        },
+        {
+            "name": "guzzlehttp/guzzle",
+            "version": "7.9.2",
+            "require": {
+                "php": "^7.2.5 || ^8.0",
+                "psr/http-client": "^1.0"
+            }
+        },
+        {
+            "name": "acme/needs-illuminate",
+            "version": "1.0.0",
+            "require": {
+                "illuminate/database": "^12.0",
+                "illuminate/collections": "^12.0"
+            }
+        },
+        {
+            "name": "spatie/laravel-permission",
+            "version": "6.10.0",
+            "require": {
+                "illuminate/support": "^12.0"
+            }
+        }
+    ],
+    "packages-dev": []
+}

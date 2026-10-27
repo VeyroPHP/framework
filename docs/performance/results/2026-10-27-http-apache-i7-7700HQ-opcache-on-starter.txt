@@ -1,0 +1,55 @@
+Release check, 2026-10-27. Same laptop as the 2026-10-26 runs (i7-7700HQ, 16 GB RAM, Windows 10,
+XAMPP Apache with mod_php, PHP 8.2.12, opcache on: zend_extension=opcache, opcache.enable=1).
+Apache was already running; nothing was restarted or reconfigured. Other programs (editor, browser,
+local PostgreSQL/Redis) were open, so treat the numbers as a smoke test, not a benchmark.
+Starter app at http://localhost/veyrophp-app/ (APP_ENV=local, APP_DEBUG=true, SQLite, file cache).
+
+Command per URL: D:\xampp\apache\bin\ab.exe -q -n 500 -c 10 http://localhost/veyrophp-app<path>
+No cookies are sent, so every request to /business starts a new session (a file in storage/cache).
+
+=== / (welcome page)
+Document Length:        6926 bytes
+Complete requests:      500
+Failed requests:        0
+Requests per second:    669.57 [#/sec] (mean)
+Time per request:       14.935 [ms] (mean)
+  50%      8
+  95%     19
+  99%    351
+
+=== /business (one-page site; new session and CSRF token per request)
+Document Length:        9301 bytes
+Complete requests:      500
+Failed requests:        0
+Requests per second:    547.84 [#/sec] (mean)
+Time per request:       18.253 [ms] (mean)
+  50%     16
+  95%     36
+  99%     63
+
+=== /sitemap.xml (ConditionalGet, no session)
+Document Length:        245 bytes
+Complete requests:      500
+Failed requests:        0
+Requests per second:    922.86 [#/sec] (mean)
+Time per request:       10.836 [ms] (mean)
+  50%     10
+  95%     21
+  99%     31
+
+=== /css/site.css (static file served by Apache)
+Document Length:        6139 bytes
+Complete requests:      500
+Failed requests:        0
+Requests per second:    3134.11 [#/sec] (mean)
+Time per request:       3.191 [ms] (mean)
+  50%      2
+  95%     16
+  99%     17
+
+Notes
+- One run per URL, 500 requests each; no repetitions, so variance is unknown. The 351 ms p99 on /
+  was a single slow tail and was not investigated.
+- The /business run left 501 session files in storage/cache (they expire after the session
+  lifetime, 120 minutes, and the scheduler's cache:prune removes them).
+- No comparison with other frameworks is made from these numbers.

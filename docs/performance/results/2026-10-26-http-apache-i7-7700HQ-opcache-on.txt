@@ -1,0 +1,35 @@
+Same machine and method as 2026-10-25-http-apache-i7-7700HQ-opcache-off.txt, after enabling opcache
+in D:\xampp\php\php.ini (zend_extension=opcache, opcache.enable=1; all other opcache settings at their
+defaults: memory 128 MB, validate_timestamps=1, revalidate_freq=2). Apache restarted before the run.
+Owner approved the php.ini change on 2026-10-26. Backup: php.ini.bak-before-opcache-2026-10-26.
+
+=== Plain PHP baseline (/veyrophp-app/public/__bench_baseline.php)
+Complete requests:      2000
+Failed requests:        0
+Requests per second:    3207.61 [#/sec] (mean)
+Time per request:       3.118 [ms] (mean)
+  50%      2
+  95%     15
+  99%     17
+ 100%     19 (longest request)
+
+=== VeyroPHP welcome page (/veyrophp-app/public/)
+Complete requests:      2000
+Failed requests:        0
+Requests per second:    1327.20 [#/sec] (mean)
+Time per request:       7.535 [ms] (mean)
+  50%      6
+  95%     17
+  99%     23
+ 100%     67 (longest request)
+
+=== VeyroPHP 404 (/veyrophp-app/public/missing-route)
+Complete requests:      2000
+Failed requests:        0
+Non-2xx responses:      2000
+Requests per second:    1274.25 [#/sec] (mean)
+Time per request:       7.848 [ms] (mean)
+  50%      7
+  95%     17
+  99%     29
+ 100%     78 (longest request)

@@ -1,0 +1,30 @@
+{
+    "name": "veyrophp/ai",
+    "description": "AI for VeyroPHP: one API for language-model providers (Anthropic Claude), with streaming and a fake provider for tests.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["veyrophp", "ai", "llm", "claude", "anthropic"],
+    "require": {
+        "php": "^8.2",
+        "veyrophp/core": "^0.1"
+    },
+    "suggest": {
+        "anthropic-ai/sdk": "Needed for the Anthropic (Claude) driver",
+        "guzzlehttp/guzzle": "PSR-18 HTTP client used by the Anthropic SDK"
+    },
+    "autoload": {
+        "psr-4": {
+            "VeyroPHP\\Ai\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "VeyroPHP\\Ai\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "veyrophp": {
+            "providers": ["VeyroPHP\\Ai\\AiServiceProvider"]
+        }
+    }
+}
